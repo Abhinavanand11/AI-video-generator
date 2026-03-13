@@ -1,0 +1,17 @@
+# environment variables
+.env
+
+# python
+venv/
+__pycache__/
+*.pyc
+
+# node
+node_modules/
+
+# generated files
+videos/
+
+# OS
+.DS_Store
+Thumbs.db

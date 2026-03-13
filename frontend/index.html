@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sora AI Video Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #020817;
+            --surface: #0d1526;
+            --surface2: #111e35;
+            --border: rgba(56, 189, 248, 0.15);
+            --border-bright: rgba(56, 189, 248, 0.5);
+            --cyan: #38bdf8;
+            --cyan-dim: rgba(56, 189, 248, 0.6);
+            --cyan-glow: rgba(56, 189, 248, 0.15);
+            --violet: #a78bfa;
+            --violet-glow: rgba(167, 139, 250, 0.15);
+            --text: #e2e8f0;
+            --text-muted: #64748b;
+            --text-dim: #94a3b8;
+            --success: #34d399;
+            --danger: #f87171;
+            --mono: 'Space Mono', monospace;
+            --sans: 'Outfit', sans-serif;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Ambient orbs */
+        body::after {
+            content: '';
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.05) 0%, transparent 70%);
+            top: -200px;
+            right: -200px;
+            pointer-events: none;
+            z-index: 0;
+            animation: floatOrb 12s ease-in-out infinite alternate;
+        }
+
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-50px, 80px) scale(1.1); }
+        }
+
+        #root { position: relative; z-index: 1; }
+
+        /* Utility */
+        .glow-text {
+            background: linear-gradient(135deg, var(--cyan) 0%, var(--violet) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 0 var(--cyan-glow), inset 0 0 20px var(--cyan-glow); }
+            50% { box-shadow: 0 0 20px 4px var(--cyan-glow), inset 0 0 30px var(--cyan-glow); }
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes dash {
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        @keyframes progressGlow {
+            0%, 100% { box-shadow: 0 0 8px var(--cyan), 0 0 16px var(--cyan-glow); }
+            50% { box-shadow: 0 0 16px var(--cyan), 0 0 32px var(--cyan-glow); }
+        }
+
+        .app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 20px 80px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 56px;
+            animation: fadeUp 0.8s ease both;
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 6px 16px;
+            font-size: 11px;
+            font-family: var(--mono);
+            color: var(--cyan);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 6px var(--cyan);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        .header h1 {
+            font-size: clamp(2.4rem, 5vw, 3.8rem);
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            line-height: 1.05;
+            margin-bottom: 14px;
+        }
+
+        .header p {
+            font-size: 1rem;
+            color: var(--text-dim);
+            font-weight: 300;
+            letter-spacing: 0.02em;
+        }
+
+        /* Main Card */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px;
+            width: 100%;
+            max-width: 680px;
+            animation: fadeUp 0.8s 0.1s ease both;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyan-dim), transparent);
+        }
+
+        .card-label {
+            font-size: 11px;
+            font-family: var(--mono);
+            color: var(--cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* Input */
+        .input-wrap {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .topic-input {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 1rem;
+            font-family: var(--sans);
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            caret-color: var(--cyan);
+        }
+
+        .topic-input::placeholder { color: var(--text-muted); }
+
+        .topic-input:focus {
+            border-color: var(--border-bright);
+            box-shadow: 0 0 0 3px var(--cyan-glow);
+        }
+
+        /* Generate Button */
+        .gen-btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            font-family: var(--sans);
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.15s, box-shadow 0.2s;
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            color: white;
+        }
+
+        .gen-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(14, 165, 233, 0.4);
+        }
+
+        .gen-btn:not(:disabled):active { transform: translateY(0); }
+
+        .gen-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .gen-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            background-size: 200% auto;
+            animation: shimmer 2.5s linear infinite;
+        }
+
+        /* Status Panel */
+        .status-panel {
+            margin-top: 28px;
+            animation: fadeUp 0.4s ease both;
+        }
+
+        .stage-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stage-chip {
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-family: var(--mono);
+            letter-spacing: 0.08em;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .stage-chip.inactive {
+            background: var(--surface2);
+            border-color: var(--border);
+            color: var(--text-muted);
+        }
+
+        .stage-chip.active {
+            background: var(--cyan-glow);
+            border-color: var(--cyan-dim);
+            color: var(--cyan);
+            box-shadow: 0 0 12px var(--cyan-glow);
+        }
+
+        .stage-chip.done {
+            background: rgba(52, 211, 153, 0.1);
+            border-color: rgba(52, 211, 153, 0.3);
+            color: var(--success);
+        }
+
+        /* Circular loader */
+        .loader-wrap {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .circular-loader {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+        }
+
+        .circular-loader circle {
+            fill: none;
+            stroke-width: 3;
+        }
+
+        .loader-track { stroke: var(--surface2); }
+
+        .loader-progress {
+            stroke: var(--cyan);
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 4px var(--cyan));
+            transition: stroke-dashoffset 0.5s ease;
+        }
+
+        .loader-spinning {
+            stroke: var(--cyan);
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 4px var(--cyan));
+            animation: spin 1.2s linear infinite;
+            transform-origin: center;
+        }
+
+        .loader-text { flex: 1; }
+        .loader-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .loader-sub { font-size: 0.8rem; color: var(--text-muted); font-family: var(--mono); }
+
+        /* Progress bar */
+        .progress-bar-wrap {
+            background: var(--surface2);
+            border-radius: 100px;
+            height: 4px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            background: linear-gradient(90deg, var(--cyan), var(--violet));
+            transition: width 0.5s ease;
+            animation: progressGlow 2s ease-in-out infinite;
+        }
+
+        .progress-pct {
+            font-size: 11px;
+            font-family: var(--mono);
+            color: var(--cyan);
+            text-align: right;
+        }
+
+        /* Script card */
+        .script-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 24px;
+            animation: fadeUp 0.4s ease both;
+        }
+
+        .script-card-label {
+            font-size: 10px;
+            font-family: var(--mono);
+            color: var(--violet);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 12px;
+        }
+
+        .script-text {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        /* Video Player */
+        .video-section {
+            margin-top: 28px;
+            animation: fadeUp 0.4s ease both;
+        }
+
+        .video-frame {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-bright);
+            box-shadow: 0 0 40px var(--cyan-glow), 0 0 80px rgba(56, 189, 248, 0.05);
+            animation: pulse-border 3s ease-in-out infinite;
+        }
+
+        .video-frame video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .action-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            font-family: var(--sans);
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .action-btn.replay {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+        }
+
+        .action-btn.replay:hover {
+            border-color: var(--border-bright);
+            color: var(--text);
+            background: var(--surface);
+        }
+
+        .action-btn.download {
+            background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+            color: white;
+        }
+
+        .action-btn.download:hover {
+            box-shadow: 0 4px 20px rgba(14, 165, 233, 0.4);
+            transform: translateY(-1px);
+        }
+
+        /* Error */
+        .error-box {
+            background: rgba(248, 113, 113, 0.08);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-top: 20px;
+            font-size: 0.875rem;
+            color: var(--danger);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: fadeUp 0.3s ease both;
+        }
+
+        /* Footer line */
+        .footer {
+            margin-top: 48px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--mono);
+            text-align: center;
+            animation: fadeUp 0.8s 0.3s ease both;
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const API_URL = 'http://localhost:8000';
+
+const STAGES = ['queued', 'generating_script', 'rendering_video', 'completed'];
+const STAGE_LABELS = {
+    queued: 'Queued',
+    generating_script: 'Generating Script',
+    rendering_video: 'Rendering Video',
+    completed: 'Completed'
+};
+
+function CircularLoader({ progress, spinning }) {
+    const R = 20;
+    const C = 2 * Math.PI * R;
+    const offset = C - (progress / 100) * C;
+
+    return (
+        <svg className="circular-loader" viewBox="0 0 48 48">
+            <circle className="loader-track" cx="24" cy="24" r={R} />
+            {spinning ? (
+                <circle
+                    className="loader-spinning"
+                    cx="24" cy="24" r={R}
+                    strokeDasharray={`${C * 0.25} ${C * 0.75}`}
+                    strokeDashoffset="0"
+                />
+            ) : (
+                <circle
+                    className="loader-progress"
+                    cx="24" cy="24" r={R}
+                    strokeDasharray={C}
+                    strokeDashoffset={offset}
+                    transform="rotate(-90 24 24)"
+                />
+            )}
+        </svg>
+    );
+}
+
+function StageChip({ stage, currentStage }) {
+    const stages = STAGES;
+    const current = stages.indexOf(currentStage);
+    const idx = stages.indexOf(stage);
+    const cls = idx < current ? 'done' : idx === current ? 'active' : 'inactive';
+    return (
+        <span className={`stage-chip ${cls}`}>
+            {cls === 'done' ? '✓ ' : ''}{STAGE_LABELS[stage]}
+        </span>
+    );
+}
+
+function VideoPlayer({ jobId, onReplay }) {
+    const videoRef = React.useRef(null);
+    const videoUrl = `${API_URL}/video/${jobId}`;
+
+    React.useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.load();
+            videoRef.current.play().catch(() => {});
+        }
+    }, [jobId]);
+
+    return (
+        <div className="video-section">
+            <div className="card-label">Generated Video</div>
+            <div className="video-frame">
+                <video ref={videoRef} controls preload="auto">
+                    <source src={videoUrl} type="video/mp4" />
+                </video>
+            </div>
+            <div className="video-actions">
+                <button
+                    className="action-btn replay"
+                    onClick={() => { videoRef.current?.play(); }}
+                >
+                    ↺ Replay
+                </button>
+                <a
+                    className="action-btn download"
+                    href={videoUrl}
+                    download={`sora-video-${jobId}.mp4`}
+                >
+                    ↓ Download MP4
+                </a>
+            </div>
+        </div>
+    );
+}
+
+function App() {
+    const [topic, setTopic] = React.useState('');
+    const [jobId, setJobId] = React.useState(null);
+    const [status, setStatus] = React.useState(null); // { status, progress, script }
+    const [error, setError] = React.useState('');
+    const [loading, setLoading] = React.useState(false);
+    const pollRef = React.useRef(null);
+
+    const stopPolling = () => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+    };
+
+    React.useEffect(() => () => stopPolling(), []);
+
+    const pollStatus = (id) => {
+        stopPolling();
+        pollRef.current = setInterval(async () => {
+            try {
+                const res = await fetch(`${API_URL}/status/${id}`);
+                const data = await res.json();
+                setStatus(data);
+                if (data.status === 'completed' || data.status === 'failed') {
+                    stopPolling();
+                    setLoading(false);
+                    if (data.status === 'failed') {
+                        setError('Video generation failed. Please try again.');
+                    }
+                }
+            } catch (e) {
+                stopPolling();
+                setLoading(false);
+                setError('Lost connection to server.');
+            }
+        }, 2000);
+    };
+
+    const handleGenerate = async () => {
+        if (!topic.trim()) { setError('Please enter a video topic.'); return; }
+        setError('');
+        setStatus(null);
+        setJobId(null);
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Failed to start');
+            setJobId(data.job_id);
+            setStatus({ status: 'queued', progress: 0, script: null });
+            pollStatus(data.job_id);
+        } catch (e) {
+            setError(e.message || 'Could not connect to server.');
+            setLoading(false);
+        }
+    };
+
+    const isGenerating = loading && status && status.status !== 'completed';
+    const isDone = status?.status === 'completed';
+    const stageLabel = status ? {
+        queued: 'Waiting in queue...',
+        generating_script: 'Writing narration script...',
+        rendering_video: 'Rendering video with Sora...',
+        completed: 'Done!'
+    }[status.status] || '' : '';
+
+    return (
+        <div className="app">
+            {/* Header */}
+            <div className="header">
+                <div className="header-badge">
+                    <span className="badge-dot" />
+                    Sora AI · GPT-4 · Powered by OpenAI
+                </div>
+                <h1>
+                    <span className="glow-text">AI Video</span><br />
+                    Generator
+                </h1>
+                <p>Transform any topic into a cinematic AI video</p>
+            </div>
+
+            {/* Input Card */}
+            <div className="card" style={{maxWidth: 680, width: '100%'}}>
+                <div className="card-label">Video Topic</div>
+                <div className="input-wrap">
+                    <input
+                        className="topic-input"
+                        type="text"
+                        placeholder="e.g. Future of Artificial Intelligence"
+                        value={topic}
+                        onChange={e => setTopic(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && !loading && handleGenerate()}
+                        disabled={loading}
+                    />
+                </div>
+                <button
+                    className="gen-btn"
+                    onClick={handleGenerate}
+                    disabled={loading}
+                >
+                    {loading ? '⏳ Generating...' : '⚡ Generate Video'}
+                </button>
+
+                {/* Error */}
+                {error && (
+                    <div className="error-box">
+                        <span>⚠</span> {error}
+                    </div>
+                )}
+
+                {/* Status Panel */}
+                {status && (
+                    <div className="status-panel">
+                        <div className="stage-row">
+                            {STAGES.map(s => (
+                                <StageChip key={s} stage={s} currentStage={status.status} />
+                            ))}
+                        </div>
+
+                        {!isDone && (
+                            <>
+                                <div className="loader-wrap">
+                                    <CircularLoader
+                                        progress={status.progress || 0}
+                                        spinning={!status.progress || status.progress === 0}
+                                    />
+                                    <div className="loader-text">
+                                        <div className="loader-title">{stageLabel}</div>
+                                        <div className="loader-sub">job_id: {jobId}</div>
+                                    </div>
+                                </div>
+                                <div className="progress-bar-wrap">
+                                    <div
+                                        className="progress-bar-fill"
+                                        style={{ width: `${status.progress || 0}%` }}
+                                    />
+                                </div>
+                                <div className="progress-pct">{Math.round(status.progress || 0)}%</div>
+                            </>
+                        )}
+
+                        {/* Script */}
+                        {status.script && (
+                            <div className="script-card">
+                                <div className="script-card-label">// Narration Script</div>
+                                <div className="script-text">{status.script}</div>
+                            </div>
+                        )}
+
+                        {/* Video Player */}
+                        {isDone && jobId && (
+                            <VideoPlayer jobId={jobId} />
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="footer">
+                sys:v2.0 · SORA_ENGINE · GPT4_SCRIPT · © 2025
+            </div>
+        </div>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
