@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-os.makedirs("videos", exist_ok=True)
+os.makedirs("backend/videos", exist_ok=True)
 
 # In-memory job store
 # Structure: { job_id: { status, progress, script, filename, error } }
